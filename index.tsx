@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI } from "@google/genai";
-// Importaciones directas de ESM para evitar errores de resolución de Rollup/Vite
 import { initializeApp } from "https://esm.sh/firebase@10.8.0/app";
 import { 
   getFirestore, 
@@ -66,7 +65,6 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID
 };
 
-// Safe Firestore Initialization
 let db: Firestore | null = null;
 try {
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {
@@ -77,7 +75,6 @@ try {
   console.error("Firebase init failed:", err);
 }
 
-// --- Types & Constants ---
 const AI_MODEL = 'gemini-3-flash-preview';
 const GOOGLE_CLIENT_ID = "238877148826-7o84ng81hvo1lb8fbf2vbktfg4qhqrjr.apps.googleusercontent.com"; 
 
@@ -157,11 +154,8 @@ function HakaTracker() {
   const [isSyncingContacts, setIsSyncingContacts] = useState(false);
   const [isSidecarMode, setIsSidecarMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [googleToken, setGoogleToken] = useState<string | null>(null);
-  const [realContacts, setRealContacts] = useState<any[]>([]);
-  const [isFetchingRealContacts, setIsFetchingRealContacts] = useState(false);
   const [isCheckingGmail, setIsCheckingGmail] = useState(false);
 
   useEffect(() => {
@@ -292,7 +286,6 @@ function HakaTracker() {
     const active = leads.filter(l => l.status === 'Active');
     const repliedLeads = leads.filter(l => l.status === 'Replied');
     
-    // 1. SE ENVIARÁN HOY (Leads que toca enviar hoy según el waitDays)
     const toSendToday = active.filter(l => {
       if (l.currentStep >= 4) return false;
       const originDate = l.lastActionDate ? new Date(l.lastActionDate) : new Date(l.createdAt);
@@ -301,10 +294,9 @@ function HakaTracker() {
       
       const nextDueDate = new Date(originDate);
       nextDueDate.setDate(nextDueDate.getDate() + nextStepConfig.waitDays);
-      return nextDueDate <= new Date(); // Ya se cumplió el tiempo
+      return nextDueDate <= new Date(); 
     });
 
-    // 2. ENVIADOS HOY (Logs de hoy con acción 'Email enviado')
     const sentTodayIds = new Set(
       logs
         .filter(log => {
@@ -335,7 +327,6 @@ function HakaTracker() {
         callback: (response: any) => {
           if (response.access_token) {
             setGoogleToken(response.access_token);
-            if (!scopes) fetchRealContacts(response.access_token);
           }
         },
       });
@@ -376,28 +367,6 @@ function HakaTracker() {
       console.error(err);
     } finally {
       setIsCheckingGmail(false);
-    }
-  };
-
-  const fetchRealContacts = async (token: string) => {
-    setIsFetchingRealContacts(true);
-    try {
-      const response = await fetch('https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,photos,organizations&pageSize=150', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      const mapped = (data.connections || []).map((conn: any) => ({
-        id: conn.resourceName,
-        name: conn.names?.[0]?.displayName || "Sin nombre",
-        email: conn.emailAddresses?.[0]?.value || "Sin email",
-        photoUrl: conn.photos?.[0]?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(conn.names?.[0]?.displayName || 'U')}&background=random`,
-        company: conn.organizations?.[0]?.name || "Individual"
-      }));
-      setRealContacts(mapped);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsFetchingRealContacts(false);
     }
   };
 
@@ -446,100 +415,99 @@ function HakaTracker() {
   };
 
   const NavButton = ({ id, icon: Icon, label }: { id: typeof view, icon: any, label: string }) => (
-    <button onClick={() => setView(id)} className={`w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-lg transition-all ${view === id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
-      <Icon size={14} />
-      {!isSidecarMode && <span className="font-semibold text-[10px] uppercase tracking-wider">{label}</span>}
+    <button onClick={() => setView(id)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${view === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
+      <Icon size={18} />
+      {!isSidecarMode && <span className="font-bold text-xs uppercase tracking-wider">{label}</span>}
     </button>
   );
 
   return (
-    <div className={`flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-['Plus_Jakarta_Sans'] transition-all duration-500 ${isSidecarMode ? 'max-w-[380px] mx-auto border-x border-slate-800 shadow-2xl' : ''}`}>
+    <div className={`flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-['Plus_Jakarta_Sans'] transition-all duration-500 ${isSidecarMode ? 'max-w-[420px] mx-auto border-x border-slate-800 shadow-2xl' : ''}`}>
       {!isSidecarMode && (
-        <aside className="w-48 border-r border-slate-900 bg-slate-950/80 backdrop-blur-xl p-3.5 flex flex-col z-20">
-          <div className="flex items-center space-x-2 mb-8 px-1">
-            <div className="bg-blue-600 p-1 rounded-lg"><LayoutDashboard size={14} className="text-white" /></div>
-            <h1 className="text-[10px] font-black tracking-tighter text-white uppercase italic">Haka Tracker</h1>
+        <aside className="w-60 border-r border-slate-900 bg-slate-950/80 backdrop-blur-xl p-5 flex flex-col z-20">
+          <div className="flex items-center space-x-3 mb-10 px-1">
+            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-900/20"><LayoutDashboard size={20} className="text-white" /></div>
+            <h1 className="text-sm font-black tracking-tighter text-white uppercase italic">Haka Tracker</h1>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-1.5">
             <NavButton id="dashboard" icon={Calendar} label="Dashboard" />
             <NavButton id="leads" icon={Users} label="Prospectos" />
             <NavButton id="templates" icon={Mail} label="Secuencias" />
             <NavButton id="settings" icon={Settings} label="Ajustes" />
           </div>
-          <div className="mt-auto pt-4 border-t border-slate-900 space-y-2">
-             <button onClick={checkGmailResponses} className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/10 transition-all group ${isCheckingGmail ? 'opacity-50 pointer-events-none' : ''}`}>
-                <RefreshCw size={12} className={isCheckingGmail ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
-                <span className="text-[8px] font-black uppercase tracking-widest">Gmail Sync</span>
+          <div className="mt-auto pt-6 border-t border-slate-900 space-y-3">
+             <button onClick={checkGmailResponses} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/10 transition-all group ${isCheckingGmail ? 'opacity-50 pointer-events-none' : ''}`}>
+                <RefreshCw size={16} className={isCheckingGmail ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Sincronizar Gmail</span>
              </button>
-             <div className="px-3 py-1 bg-slate-900 rounded-lg flex items-center justify-between">
-                <span className="text-[6px] font-black text-slate-500 uppercase tracking-widest">Storage</span>
-                {db ? <Database size={10} className="text-orange-400" /> : <CloudOff size={10} className="text-amber-500" />}
+             <div className="px-4 py-2 bg-slate-900 rounded-xl flex items-center justify-between">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Conexión</span>
+                {db ? <div className="flex items-center space-x-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div><Database size={14} className="text-emerald-400" /></div> : <CloudOff size={14} className="text-amber-500" />}
              </div>
-             <button onClick={() => setIsSidecarMode(true)} className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all">
-                <span className="text-[8px] font-bold uppercase">Sidebar</span>
-                <Minimize2 size={10} />
+             <button onClick={() => setIsSidecarMode(true)} className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all shadow-sm">
+                <span className="text-[10px] font-bold uppercase">Sidebar</span>
+                <Minimize2 size={14} />
              </button>
           </div>
         </aside>
       )}
 
       <main className="flex-1 flex flex-col relative overflow-hidden bg-slate-950">
-        <header className={`flex items-center justify-between px-5 border-b border-slate-900/50 bg-slate-950/80 backdrop-blur-md z-10 ${isSidecarMode ? 'h-10' : 'h-12'}`}>
-          <div className="flex items-center space-x-2">
-            {isSidecarMode && <button onClick={() => setIsSidecarMode(false)} className="p-1 bg-slate-900 rounded-lg text-slate-400"><Maximize2 size={10} /></button>}
-            <h2 className="font-black text-white text-sm tracking-tight uppercase italic">
-              {view === 'dashboard' ? 'Overview' : view === 'leads' ? 'Base de Leads' : view === 'templates' ? 'Editor Secuencias' : 'Ajustes'}
+        <header className={`flex items-center justify-between px-8 border-b border-slate-900/50 bg-slate-950/80 backdrop-blur-md z-10 ${isSidecarMode ? 'h-14' : 'h-16'}`}>
+          <div className="flex items-center space-x-3">
+            {isSidecarMode && <button onClick={() => setIsSidecarMode(false)} className="p-2 bg-slate-900 rounded-xl text-slate-400 hover:text-white"><Maximize2 size={16} /></button>}
+            <h2 className="font-black text-white text-lg tracking-tight uppercase italic">
+              {view === 'dashboard' ? 'Resumen Operativo' : view === 'leads' ? 'Base de Leads' : view === 'templates' ? 'Secuencias de Mail' : 'Ajustes'}
             </h2>
           </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={() => setIsAddingLead(true)} className="bg-blue-600 text-white px-2.5 py-1 rounded-lg shadow hover:bg-blue-500 transition-all active:scale-95 flex items-center space-x-1.5">
-              <Plus size={10} />
-              <span className="text-[8px] font-black uppercase tracking-widest">Nuevo Lead</span>
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setIsAddingLead(true)} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95 flex items-center space-x-2">
+              <Plus size={16} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Nuevo Lead</span>
             </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           {isLoading ? (
-            <div className="h-full flex flex-col items-center justify-center space-y-2">
-              <Loader2 size={24} className="text-blue-500 animate-spin" />
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">Sincronizando...</p>
+            <div className="h-full flex flex-col items-center justify-center space-y-4">
+              <Loader2 size={32} className="text-blue-500 animate-spin" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Iniciando sistema...</p>
             </div>
           ) : view === 'dashboard' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300 max-w-[1400px] mx-auto">
               
-              {/* COLUMNA PRINCIPAL (FLUJO DIARIO) */}
-              <div className="lg:col-span-2 space-y-4">
+              <div className="lg:col-span-8 space-y-8">
                 
-                {/* SECCIÓN 1: SE ENVIARÁN HOY */}
-                <section className="space-y-2">
-                  <div className="flex items-center space-x-2 px-1">
-                    <Clock size={12} className="text-blue-400" />
-                    <h3 className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Se enviarán hoy ({dashboardData.toSendToday.length})</h3>
+                {/* 1. SE ENVIARÁN HOY */}
+                <section className="space-y-4">
+                  <div className="flex items-center space-x-3 px-1">
+                    <Clock size={18} className="text-blue-400" />
+                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Se enviarán hoy ({dashboardData.toSendToday.length})</h3>
                   </div>
                   {dashboardData.toSendToday.length === 0 ? (
-                    <div className="bg-slate-900/30 border border-dashed border-slate-800 rounded-xl p-6 text-center">
-                      <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest italic">Inbox al día. Sin envíos pendientes.</p>
+                    <div className="bg-slate-900/40 border-2 border-dashed border-slate-800 rounded-2xl p-10 text-center">
+                      <p className="text-sm font-bold text-slate-600 uppercase tracking-widest italic">No hay correos programados para esta jornada.</p>
                     </div>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       {dashboardData.toSendToday.map(lead => (
-                        <div key={lead.id} className="bg-slate-900/60 border border-slate-800 p-2.5 rounded-xl flex flex-col justify-between hover:border-blue-500/40 transition-all shadow-sm">
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              <div className="w-7 h-7 rounded-lg bg-blue-600/10 flex items-center justify-center font-black text-[9px] text-blue-500 border border-blue-500/10">{lead.name.charAt(0)}</div>
+                        <div key={lead.id} className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between hover:border-blue-500/50 hover:bg-slate-900/80 transition-all shadow-xl group">
+                          <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center space-x-4 overflow-hidden">
+                              <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center font-black text-sm text-blue-500 border border-blue-500/10 group-hover:scale-110 transition-transform">{lead.name.charAt(0)}</div>
                               <div className="overflow-hidden">
-                                <h4 className="font-black text-slate-100 text-[11px] tracking-tight truncate">{lead.name}</h4>
-                                <p className="text-[7px] text-slate-500 font-black uppercase truncate">{lead.company}</p>
+                                <h4 className="font-black text-slate-100 text-sm tracking-tight truncate mb-1">{lead.name}</h4>
+                                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest truncate">{lead.company}</p>
                               </div>
                             </div>
-                            <div className="bg-blue-600/20 text-blue-400 text-[6px] font-black px-1 py-0.5 rounded-md border border-blue-500/20 uppercase">Paso {lead.currentStep + 1}</div>
+                            <div className="bg-blue-600/20 text-blue-400 text-[9px] font-black px-2.5 py-1 rounded-lg border border-blue-500/20 uppercase shadow-inner">Paso {lead.currentStep + 1}</div>
                           </div>
-                          <div className="flex space-x-1">
-                            <button disabled={aiLoading === lead.id} onClick={() => generateAIEmail(lead)} className="flex-1 bg-blue-600 h-7 rounded-lg flex items-center justify-center space-x-1 text-white font-black text-[7px] uppercase tracking-widest hover:bg-blue-500 transition-all">
-                              {aiLoading === lead.id ? <Loader2 size={10} className="animate-spin" /> : <><Sparkles size={10} /><span>Borrar con IA</span></>}
+                          <div className="flex space-x-2">
+                            <button disabled={aiLoading === lead.id} onClick={() => generateAIEmail(lead)} className="flex-1 bg-blue-600 h-11 rounded-xl flex items-center justify-center space-x-2 text-white font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 shadow-lg shadow-blue-900/20 transition-all active:scale-95">
+                              {aiLoading === lead.id ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} /><span>Redactar con IA</span></>}
                             </button>
-                            <button onClick={() => openGmailRaw(lead)} className="w-7 h-7 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"><Send size={10} /></button>
+                            <button onClick={() => openGmailRaw(lead)} className="w-11 h-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500/50 transition-all active:scale-95"><Send size={18} /></button>
                           </div>
                         </div>
                       ))}
@@ -547,30 +515,30 @@ function HakaTracker() {
                   )}
                 </section>
 
-                {/* SECCIÓN 2: ENVIADOS HOY */}
-                <section className="space-y-2">
-                  <div className="flex items-center space-x-2 px-1">
-                    <CheckCircle2 size={12} className="text-indigo-400" />
-                    <h3 className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Enviados hoy ({dashboardData.sentToday.length})</h3>
+                {/* 2. ENVIADOS HOY */}
+                <section className="space-y-4">
+                  <div className="flex items-center space-x-3 px-1">
+                    <CheckCircle2 size={18} className="text-indigo-400" />
+                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Enviados hoy ({dashboardData.sentToday.length})</h3>
                   </div>
                   {dashboardData.sentToday.length === 0 ? (
-                    <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-4 text-center">
-                      <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest">No has enviado nada hoy</p>
+                    <div className="bg-slate-900/20 border border-slate-900 rounded-2xl p-8 text-center">
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">Aún no has procesado envíos hoy.</p>
                     </div>
                   ) : (
-                    <div className="grid gap-1.5">
+                    <div className="grid gap-2">
                       {dashboardData.sentToday.map(lead => (
-                        <div key={lead.id} className="bg-slate-900/30 border border-slate-800/50 p-2 rounded-lg flex items-center justify-between shadow-sm">
-                          <div className="flex items-center space-x-2.5 overflow-hidden">
-                            <div className="w-6 h-6 rounded-md bg-indigo-500/10 flex items-center justify-center font-black text-[8px] text-indigo-400">{lead.name.charAt(0)}</div>
+                        <div key={lead.id} className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-xl flex items-center justify-between shadow-sm hover:bg-slate-900/50 transition-all">
+                          <div className="flex items-center space-x-4 overflow-hidden">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center font-black text-xs text-indigo-400">{lead.name.charAt(0)}</div>
                             <div className="overflow-hidden">
-                              <p className="text-[10px] font-black text-slate-300 truncate leading-none mb-0.5">{lead.name}</p>
-                              <p className="text-[7px] text-slate-600 font-bold uppercase truncate">{lead.company} • Secuencia: Etapa {lead.currentStep}</p>
+                              <p className="text-sm font-black text-slate-300 truncate leading-none mb-1">{lead.name}</p>
+                              <p className="text-[10px] text-slate-600 font-bold uppercase truncate">{lead.company} • Secuencia completada: Etapa {lead.currentStep}</p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-1 text-indigo-500">
-                             <Check size={8} />
-                             <span className="text-[6px] font-black uppercase tracking-tighter">Done</span>
+                          <div className="flex items-center space-x-2 text-indigo-500 pr-2">
+                             <Check size={14} className="stroke-[3]" />
+                             <span className="text-[10px] font-black uppercase tracking-tighter">Confirmado</span>
                           </div>
                         </div>
                       ))}
@@ -579,73 +547,73 @@ function HakaTracker() {
                 </section>
               </div>
 
-              {/* COLUMNA LATERAL (RESPUESTAS Y MÉTRICAS) */}
-              <div className="space-y-4">
+              <div className="lg:col-span-4 space-y-8">
                 
-                {/* SECCIÓN 3: HAN RESPONDIDO */}
-                <section className="space-y-2">
-                  <div className="flex items-center space-x-2 px-1">
-                    <MessageSquare size={12} className="text-green-400" />
-                    <h3 className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Han respondido ({dashboardData.replied.length})</h3>
+                {/* 3. HAN RESPONDIDO */}
+                <section className="space-y-4">
+                  <div className="flex items-center space-x-3 px-1">
+                    <MessageSquare size={18} className="text-emerald-400" />
+                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Han respondido ({dashboardData.replied.length})</h3>
                   </div>
                   {dashboardData.replied.length === 0 ? (
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-6 text-center">
-                      <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest italic">Sin respuestas pendientes.</p>
+                    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-10 text-center">
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-widest italic">Esperando respuestas del mercado...</p>
                     </div>
                   ) : (
-                    <div className="grid gap-2">
+                    <div className="grid gap-4">
                       {dashboardData.replied.map(lead => (
-                        <div key={lead.id} className="bg-white border border-slate-200 p-2.5 rounded-xl flex flex-col justify-between hover:shadow-lg transition-all shadow-sm">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              <div className="w-7 h-7 rounded-lg bg-green-500/10 flex items-center justify-center font-black text-green-600 text-[9px] border border-green-500/10">{lead.name.charAt(0)}</div>
+                        <div key={lead.id} className="bg-white border border-slate-200 p-5 rounded-2xl flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 shadow-lg">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-4 overflow-hidden">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center font-black text-emerald-600 text-sm border border-emerald-500/10">{lead.name.charAt(0)}</div>
                               <div className="overflow-hidden">
-                                <h4 className="font-black text-slate-900 text-[10px] tracking-tight truncate leading-none mb-0.5">{lead.name}</h4>
-                                <p className="text-[7px] text-slate-500 font-black uppercase truncate">{lead.company}</p>
+                                <h4 className="font-black text-slate-900 text-sm tracking-tight truncate mb-1">{lead.name}</h4>
+                                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest truncate">{lead.company}</p>
                               </div>
                             </div>
-                            <div className="p-1 cursor-pointer hover:bg-slate-100 rounded-md transition-colors" onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/from%3A${lead.email}`, '_blank')}><ExternalLink size={10} className="text-slate-400" /></div>
+                            <div className="p-2 cursor-pointer hover:bg-slate-100 rounded-lg transition-colors" onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/from%3A${lead.email}`, '_blank')}><ExternalLink size={16} className="text-slate-400" /></div>
                           </div>
-                          <button onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/from%3A${lead.email}`, '_blank')} className="w-full py-1.5 bg-green-600 text-white rounded-lg font-black text-[7px] uppercase tracking-widest hover:bg-green-500 transition-all active:scale-95 shadow-md">Ir al Correo</button>
+                          <button onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/from%3A${lead.email}`, '_blank')} className="w-full py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 transition-all active:scale-95 shadow-lg shadow-emerald-900/20">Atender ahora</button>
                         </div>
                       ))}
                     </div>
                   )}
                 </section>
 
-                {/* MÉTRICAS RÁPIDAS */}
-                <section className="p-3.5 bg-indigo-700 text-white rounded-xl space-y-2 shadow-lg shadow-indigo-900/40">
+                {/* MÉTRICAS */}
+                <section className="p-6 bg-indigo-700 text-white rounded-2xl space-y-4 shadow-2xl shadow-indigo-900/40">
                   <div className="flex justify-between items-end">
-                    <span className="text-[7px] font-bold uppercase opacity-80">Conversión</span>
-                    <span className="text-lg font-black italic">{dashboardData.total > 0 ? Math.round((dashboardData.replied.length / dashboardData.total) * 100) : 0}%</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Tasa de Conversión</span>
+                    <span className="text-3xl font-black italic">{dashboardData.total > 0 ? Math.round((dashboardData.replied.length / dashboardData.total) * 100) : 0}%</span>
                   </div>
-                  <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
                     <div className="h-full bg-white transition-all duration-1000" style={{ width: `${dashboardData.total > 0 ? (dashboardData.replied.length / dashboardData.total) * 100 : 0}%` }}></div>
                   </div>
+                  <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Basado en {dashboardData.total} prospectos activos</p>
                 </section>
               </div>
             </div>
           )}
           
           {view === 'leads' && (
-             <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto">
-                <div className="relative mb-3">
-                   <Search size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                   <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Filtrar base de prospectos..." className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-9 pr-4 text-[11px] font-bold text-slate-900 focus:outline-none shadow-sm" />
+             <div className="space-y-4 animate-in fade-in max-w-4xl mx-auto pb-10">
+                <div className="relative mb-6">
+                   <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                   <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar por nombre o empresa..." className="w-full bg-white border border-slate-200 rounded-2xl py-5 pl-14 pr-6 text-sm font-bold text-slate-900 focus:outline-none shadow-xl" />
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid gap-3">
                   {leads.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()) || l.company.toLowerCase().includes(searchQuery.toLowerCase())).map(lead => (
-                    <div key={lead.id} className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-blue-300 transition-all shadow-sm">
-                      <div className="flex items-center space-x-3 overflow-hidden">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-black ${lead.type === 'KDM' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>{lead.name.charAt(0)}</div>
+                    <div key={lead.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex items-center justify-between hover:border-blue-300 hover:shadow-lg transition-all shadow-sm group">
+                      <div className="flex items-center space-x-5 overflow-hidden">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black transition-transform group-hover:scale-110 ${lead.type === 'KDM' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>{lead.name.charAt(0)}</div>
                         <div className="overflow-hidden">
-                          <p className="text-[11px] font-black text-slate-900 leading-none mb-0.5 truncate">{lead.name}</p>
-                          <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest truncate">{lead.company} • Paso: {lead.currentStep}</p>
+                          <p className="text-base font-black text-slate-900 leading-none mb-1.5 truncate">{lead.name}</p>
+                          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest truncate">{lead.company} • Secuencia: Etapa {lead.currentStep}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 shrink-0">
-                        <span className={`text-[6px] font-black px-1.5 py-0.5 rounded-md border uppercase ${lead.status === 'Active' ? 'text-blue-600 bg-blue-50 border-blue-100' : lead.status === 'Replied' ? 'text-green-600 bg-green-50 border-green-100' : 'text-slate-400 bg-slate-50 border-slate-100'}`}>{lead.status}</span>
-                        <button onClick={() => deleteLeadFromCloud(lead.id)} className="text-slate-300 hover:text-red-500 p-1 bg-slate-50 rounded-md transition-all"><Trash2 size={10} /></button>
+                      <div className="flex items-center space-x-4 shrink-0">
+                        <span className={`text-[10px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-wider ${lead.status === 'Active' ? 'text-blue-600 bg-blue-50 border-blue-100' : lead.status === 'Replied' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-400 bg-slate-50 border-slate-100'}`}>{lead.status}</span>
+                        <button onClick={() => deleteLeadFromCloud(lead.id)} className="text-slate-300 hover:text-red-500 p-2.5 bg-slate-50 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -654,45 +622,46 @@ function HakaTracker() {
           )}
 
           {view === 'templates' && (
-            <div className="space-y-6 animate-in fade-in max-w-2xl mx-auto pb-10">
-               <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+            <div className="space-y-10 animate-in fade-in max-w-3xl mx-auto pb-20">
+               <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl flex items-center justify-between shadow-2xl">
                   <div>
-                    <h3 className="text-[11px] font-black text-white italic uppercase tracking-tighter">Gestión de Copys</h3>
-                    <p className="text-[7px] text-slate-500 font-black uppercase mt-0.5">Control de contenido secuencial</p>
+                    <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Editor de Estrategia</h3>
+                    <p className="text-xs text-slate-500 font-black uppercase mt-1 tracking-widest">Personaliza el mensaje para cada etapa del embudo</p>
                   </div>
-                  <button onClick={() => saveTemplates(templates)} className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-black text-[8px] uppercase shadow transition-all active:scale-95">
-                    {isSyncing ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-                    <span>Guardar Todo</span>
+                  <button onClick={() => saveTemplates(templates)} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs uppercase shadow-xl transition-all active:scale-95">
+                    {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    <span>Guardar Cambios</span>
                   </button>
                </div>
 
                {['KDM', 'Referrer'].map(type => (
-                 <div key={type} className="space-y-3">
-                    <div className="flex items-center space-x-2 px-1">
-                        <div className="w-4 h-0.5 bg-blue-600"></div>
-                        <p className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Flow: {type}</p>
+                 <div key={type} className="space-y-6">
+                    <div className="flex items-center space-x-4 px-2">
+                        <div className="w-10 h-0.5 bg-blue-600"></div>
+                        <p className="text-xs font-black text-white uppercase tracking-[0.4em]">Flujo: {type === 'KDM' ? 'Decision Maker' : 'Referidores'}</p>
                     </div>
-                    <div className="grid gap-3">
+                    <div className="grid gap-6">
                       {templates[type as LeadType].map((temp, i) => (
-                        <div key={i} className="bg-white border border-slate-200 p-4 rounded-xl space-y-3 shadow-sm relative group">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                            <div className="flex items-center space-x-2">
-                                <span className="bg-slate-900 px-1.5 py-0.5 rounded-md text-[7px] font-black text-white uppercase">Paso {temp.step}</span>
-                                <h4 className="text-[10px] font-black text-slate-900 uppercase italic tracking-tight">{temp.title}</h4>
+                        <div key={i} className="bg-white border border-slate-200 p-8 rounded-3xl space-y-6 shadow-xl relative group">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+                            <div className="flex items-center space-x-4">
+                                <span className="bg-slate-900 px-3 py-1.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest">Etapa {temp.step}</span>
+                                <h4 className="text-base font-black text-slate-900 uppercase italic tracking-tight">{temp.title}</h4>
                             </div>
-                            <div className="flex items-center space-x-1 text-slate-400">
-                                <Clock size={8} />
-                                <span className="text-[7px] font-black uppercase">Wait: {STEPS_CONFIG[i].waitDays} d</span>
+                            <div className="flex items-center space-x-2 text-slate-400">
+                                <Clock size={14} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Espera: {STEPS_CONFIG[i].waitDays} días</span>
                             </div>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-5">
                             <div>
-                                <label className="text-[7px] font-black text-slate-400 uppercase mb-0.5 block">Asunto Email</label>
-                                <input value={temp.subject} onChange={(e) => handleTemplateChange(type as LeadType, i, 'subject', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-slate-900 focus:outline-none" />
+                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block px-1 tracking-widest">Asunto del Correo</label>
+                                <input value={temp.subject} onChange={(e) => handleTemplateChange(type as LeadType, i, 'subject', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/10" />
                             </div>
                             <div>
-                                <label className="text-[7px] font-black text-slate-400 uppercase mb-0.5 block">Cuerpo del Mensaje</label>
-                                <textarea rows={3} value={temp.body} onChange={(e) => handleTemplateChange(type as LeadType, i, 'body', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] text-slate-600 leading-relaxed font-medium focus:outline-none resize-none" />
+                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block px-1 tracking-widest">Cuerpo del Mensaje</label>
+                                <textarea rows={6} value={temp.body} onChange={(e) => handleTemplateChange(type as LeadType, i, 'body', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm text-slate-600 leading-relaxed font-medium focus:outline-none resize-none" />
+                                <p className="text-[10px] font-bold text-slate-400 mt-3 px-1 uppercase tracking-widest">Tokens: [ContactName] [Company] [MyName]</p>
                             </div>
                           </div>
                         </div>
@@ -704,43 +673,47 @@ function HakaTracker() {
           )}
 
           {view === 'settings' && (
-            <div className="space-y-4 animate-in fade-in max-w-lg mx-auto">
-              <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-600 text-white rounded-lg"><User size={14} /></div>
+            <div className="space-y-8 animate-in fade-in max-w-2xl mx-auto">
+              <div className="p-10 bg-white border border-slate-200 rounded-3xl space-y-8 shadow-xl">
+                <div className="flex items-center space-x-5">
+                  <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-900/20"><User size={24} /></div>
                   <div>
-                    <h3 className="text-xs font-black uppercase text-slate-900 italic">Identidad de Envío</h3>
-                    <p className="text-[7px] font-bold text-slate-400 uppercase">Firma de cada contacto</p>
+                    <h3 className="text-xl font-black uppercase text-slate-900 italic tracking-tighter">Identidad Comercial</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Firma automática del sistema</p>
                   </div>
                 </div>
                 <div>
-                    <label className="text-[8px] font-black text-slate-400 uppercase mb-1 block px-0.5">Nombre comercial (Firma)</label>
-                    <input value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Tu nombre" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-900 focus:outline-none" />
+                    <label className="text-xs font-black text-slate-400 uppercase mb-3 block px-1 tracking-widest">Nombre del Remitente</label>
+                    <input value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Ej: Felipe Farias" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-base font-bold text-slate-900 focus:outline-none" />
                 </div>
               </div>
 
-              <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm">
-                <div className="flex items-center space-x-2 text-orange-500">
-                  <Database size={14} />
-                  <h3 className="text-xs font-black uppercase italic text-slate-900">Cloud Status</h3>
+              <div className="p-10 bg-white border border-slate-200 rounded-3xl space-y-8 shadow-xl">
+                <div className="flex items-center space-x-4 text-orange-500">
+                  <Database size={24} />
+                  <h3 className="text-xl font-black uppercase italic text-slate-900 tracking-tighter">Estado de la Nube</h3>
                 </div>
                 {!db ? (
-                  <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg">
-                    <p className="text-[8px] font-black text-amber-600 uppercase">Offline Mode</p>
-                    <p className="text-[8px] text-slate-600 leading-relaxed font-bold">Datos persistentes solo en este navegador (Local Storage).</p>
+                  <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl space-y-3">
+                    <p className="text-xs font-black text-amber-600 uppercase tracking-widest">Sistema Offline</p>
+                    <p className="text-sm text-slate-600 leading-relaxed font-bold italic">Los datos se guardan localmente. Configura Firebase para habilitar sincronización multi-dispositivo.</p>
                   </div>
                 ) : (
-                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-lg flex items-center space-x-3">
-                    <Database size={12} className="text-orange-500" />
+                  <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex items-center space-x-5">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-500 shadow-lg border border-emerald-100"><Database size={24} /></div>
                     <div>
-                      <p className="text-[10px] font-black text-slate-900 leading-none mb-0.5">Sincronizado con Firestore</p>
-                      <p className="text-[7px] text-orange-600 font-black uppercase tracking-widest">Base de datos HakaLab Cloud Activa</p>
+                      <p className="text-base font-black text-slate-900 leading-none mb-1.5">Firestore Sincronizado</p>
+                      <p className="text-xs text-emerald-600 font-black uppercase tracking-widest">HakaLab Cloud Active ✓</p>
                     </div>
                   </div>
                 )}
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <button onClick={() => handleConnectGoogle()} className="w-full py-2 bg-slate-900 text-white rounded-lg font-black text-[8px] uppercase shadow hover:bg-slate-800 transition-all">
-                    {googleToken ? 'Cuenta de Google Conectada ✓' : 'Vincular Google Workspace'}
+                <div className="pt-8 border-t border-slate-100 space-y-4">
+                  <div className="flex items-center space-x-3 text-slate-900">
+                    <Mail size={20} />
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em]">Google Workspace</h3>
+                  </div>
+                  <button onClick={() => handleConnectGoogle()} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase shadow-2xl hover:bg-slate-800 transition-all active:scale-95 tracking-widest">
+                    {googleToken ? 'Cuenta Conectada Correctamente ✓' : 'Vincular Google Workspace'}
                   </button>
                 </div>
               </div>
@@ -749,32 +722,32 @@ function HakaTracker() {
         </div>
 
         {isSidecarMode && (
-          <footer className="h-10 border-t border-slate-900 bg-slate-950 flex items-center justify-around px-2">
-            <button onClick={() => setView('dashboard')} className={`flex flex-col items-center p-1 rounded-lg transition-all ${view === 'dashboard' ? 'text-blue-500' : 'text-slate-600'}`}>
-              <LayoutDashboard size={12} />
-              <span className="text-[6px] font-black uppercase">Home</span>
+          <footer className="h-14 border-t border-slate-900 bg-slate-950 flex items-center justify-around px-4">
+            <button onClick={() => setView('dashboard')} className={`flex flex-col items-center p-2 rounded-xl transition-all ${view === 'dashboard' ? 'text-blue-500 bg-blue-500/5 shadow-inner' : 'text-slate-600'}`}>
+              <LayoutDashboard size={18} />
+              <span className="text-[8px] font-black uppercase mt-1 tracking-tighter">Home</span>
             </button>
-            <button onClick={() => setView('leads')} className={`flex flex-col items-center p-1 rounded-lg transition-all ${view === 'leads' ? 'text-blue-500' : 'text-slate-600'}`}>
-              <Users size={12} />
-              <span className="text-[6px] font-black uppercase">Leads</span>
+            <button onClick={() => setView('leads')} className={`flex flex-col items-center p-2 rounded-xl transition-all ${view === 'leads' ? 'text-blue-500 bg-blue-500/5' : 'text-slate-600'}`}>
+              <Users size={18} />
+              <span className="text-[8px] font-black uppercase mt-1 tracking-tighter">Leads</span>
             </button>
-            <button onClick={() => setView('templates')} className={`flex flex-col items-center p-1 rounded-lg transition-all ${view === 'templates' ? 'text-blue-500' : 'text-slate-600'}`}>
-              <Mail size={12} />
-              <span className="text-[6px] font-black uppercase">Mails</span>
+            <button onClick={() => setView('templates')} className={`flex flex-col items-center p-2 rounded-xl transition-all ${view === 'templates' ? 'text-blue-500 bg-blue-500/5' : 'text-slate-600'}`}>
+              <Mail size={18} />
+              <span className="text-[8px] font-black uppercase mt-1 tracking-tighter">Mail</span>
             </button>
-            <button onClick={() => setView('settings')} className={`flex flex-col items-center p-1 rounded-lg transition-all ${view === 'settings' ? 'text-blue-500' : 'text-slate-600'}`}>
-              <Settings size={12} />
-              <span className="text-[6px] font-black uppercase">Set</span>
+            <button onClick={() => setView('settings')} className={`flex flex-col items-center p-2 rounded-xl transition-all ${view === 'settings' ? 'text-blue-500 bg-blue-500/5' : 'text-slate-600'}`}>
+              <Settings size={18} />
+              <span className="text-[8px] font-black uppercase mt-1 tracking-tighter">Config</span>
             </button>
           </footer>
         )}
       </main>
 
-      {/* MODAL: NUEVO PROSPECTO */}
+      {/* MODAL: ALTA DE LEAD */}
       {isAddingLead && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-w-[280px] rounded-xl shadow-2xl p-6 space-y-5 animate-in zoom-in duration-200">
-            <h3 className="text-lg font-black text-slate-900 italic uppercase leading-none">Alta de Lead</h3>
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white w-full max-w-[400px] rounded-3xl shadow-2xl p-10 space-y-8 animate-in zoom-in duration-300">
+            <h3 className="text-2xl font-black text-slate-900 italic uppercase leading-none tracking-tighter">Alta de Prospecto</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
@@ -793,17 +766,29 @@ function HakaTracker() {
               await syncLeadToCloud(nl);
               await addActivityLog(nl, 'Prospecto creado');
               setIsAddingLead(false);
-            }} className="space-y-2.5">
-              <input required name="name" placeholder="Nombre completo" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-900 focus:outline-none" />
-              <input required name="email" type="email" placeholder="Email corporativo" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-900 focus:outline-none" />
-              <input required name="company" placeholder="Nombre Empresa" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-900 focus:outline-none" />
-              <select name="type" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[9px] font-black text-slate-900 uppercase">
-                <option value="KDM">Key Decision Maker</option>
-                <option value="Referrer">Referidor / Alianza</option>
-              </select>
-              <button type="submit" className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-black text-[9px] uppercase shadow-md mt-4 active:scale-95 transition-all">Guardar Lead</button>
+            }} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Nombre Completo</label>
+                <input required name="name" placeholder="Ej: John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/10" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Correo Electrónico</label>
+                <input required name="email" type="email" placeholder="ejemplo@empresa.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/10" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Compañía / Empresa</label>
+                <input required name="company" placeholder="Nombre de la empresa" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/10" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Tipo de Contacto</label>
+                <select name="type" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-xs font-black text-slate-900 uppercase tracking-widest">
+                  <option value="KDM">Key Decision Maker (KDM)</option>
+                  <option value="Referrer">Referidor / Alianza</option>
+                </select>
+              </div>
+              <button type="submit" className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl shadow-blue-900/20 mt-6 active:scale-95 transition-all">Guardar en Base de Datos</button>
             </form>
-            <button onClick={() => setIsAddingLead(false)} className="w-full text-slate-400 font-black uppercase text-[7px] hover:text-slate-900 transition-colors">Volver</button>
+            <button onClick={() => setIsAddingLead(false)} className="w-full text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-900 transition-colors">Volver al Dashboard</button>
           </div>
         </div>
       )}
