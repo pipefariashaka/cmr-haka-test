@@ -26,7 +26,9 @@ import {
   Info,
   ChevronRight,
   TrendingUp,
-  ListFilter
+  ListFilter,
+  RefreshCw,
+  MessageSquare
 } from 'lucide-react';
 
 // --- Configuration ---
@@ -34,7 +36,7 @@ const AI_MODEL = 'gemini-3-flash-preview';
 const GOOGLE_CLIENT_ID = "238877148826-7o84ng81hvo1lb8fbf2vbktfg4qhqrjr.apps.googleusercontent.com"; 
 
 type LeadType = 'KDM' | 'Referrer';
-type LeadStatus = 'Active' | 'Paused' | 'Converted' | 'Lost';
+type LeadStatus = 'Active' | 'Paused' | 'Converted' | 'Lost' | 'Replied';
 
 interface Lead {
   id: string;
@@ -78,7 +80,6 @@ const TEMPLATES = {
   ]
 };
 
-// Fallback para IDs únicos
 const generateId = () => {
   try { return crypto.randomUUID(); } 
   catch { return Math.random().toString(36).substr(2, 9); }
@@ -87,7 +88,7 @@ const generateId = () => {
 function HakaTracker() {
   const [leads, setLeads] = useState<Lead[]>(() => {
     try {
-      const saved = localStorage.getItem('hakalab_leads_v5');
+      const saved = localStorage.getItem('hakalab_leads_v6');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
@@ -103,25 +104,27 @@ function HakaTracker() {
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [realContacts, setRealContacts] = useState<GoogleContact[]>([]);
   const [isFetchingRealContacts, setIsFetchingRealContacts] = useState(false);
+  const [isCheckingGmail, setIsCheckingGmail] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('hakalab_leads_v5', JSON.stringify(leads));
+    localStorage.setItem('hakalab_leads_v6', JSON.stringify(leads));
   }, [leads]);
 
   useEffect(() => {
     localStorage.setItem('hakalab_user_name', userName);
   }, [userName]);
 
-  // Agrupar leads para el Dashboard con mayor detalle
   const dashboardData = useMemo(() => {
     const now = new Date();
     const active = leads.filter(l => l.status === 'Active');
+    const replied = leads.filter(l => l.status === 'Replied');
     
     return {
       total: leads.length,
       activeCount: active.length,
       newLeads: active.filter(l => l.currentStep === 0),
-      // Tareas HOY (vencidas o para hoy)
+      repliedCount: replied.length,
+      repliedLeads: replied,
       todayTasks: active.filter(l => {
         if (l.currentStep === 0) return false;
         if (l.currentStep >= 4) return false;
@@ -134,7 +137,6 @@ function HakaTracker() {
         nextDate.setDate(nextDate.getDate() + nextStepConfig.waitDays);
         return nextDate <= now;
       }),
-      // En espera (próximos días)
       upcoming: active.filter(l => {
         if (l.currentStep === 0) return false;
         if (l.currentStep >= 4) return false;
@@ -150,25 +152,66 @@ function HakaTracker() {
     };
   }, [leads]);
 
-  const handleConnectGoogle = () => {
+  const handleConnectGoogle = (scopes?: string[]) => {
     try {
       if (!(window as any).google || !(window as any).google.accounts) {
-        alert("Google SDK no detectado. Revisa tu conexión.");
+        alert("Google SDK no detectado.");
         return;
       }
       const client = (window as any).google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/contacts.readonly',
+        scope: scopes ? scopes.join(' ') : 'https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/gmail.readonly',
         callback: (response: any) => {
           if (response.access_token) {
             setGoogleToken(response.access_token);
-            fetchRealContacts(response.access_token);
+            if (!scopes) fetchRealContacts(response.access_token);
           }
         },
       });
       client.requestAccessToken();
     } catch (err) {
-      alert("Error en la conexión con Google.");
+      console.error(err);
+    }
+  };
+
+  const checkGmailResponses = async () => {
+    if (!googleToken) {
+      handleConnectGoogle(['https://www.googleapis.com/auth/gmail.readonly']);
+      return;
+    }
+
+    setIsCheckingGmail(true);
+    let foundAny = false;
+
+    try {
+      const activeLeads = leads.filter(l => l.status === 'Active' && l.currentStep > 0);
+      
+      for (const lead of activeLeads) {
+        const lastAction = lead.lastActionDate ? new Date(lead.lastActionDate) : new Date(lead.createdAt);
+        const afterTimestamp = Math.floor(lastAction.getTime() / 1000);
+        
+        // Buscamos mensajes de este lead enviados después de nuestra última acción
+        const query = encodeURIComponent(`from:${lead.email} after:${afterTimestamp}`);
+        const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=1`, {
+          headers: { Authorization: `Bearer ${googleToken}` }
+        });
+        
+        const data = await response.json();
+        if (data.resultSizeEstimate > 0) {
+          foundAny = true;
+          setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: 'Replied' as LeadStatus } : l));
+        }
+      }
+      
+      if (!foundAny) {
+        alert("No se detectaron nuevas respuestas de tus leads activos.");
+      } else {
+        alert("¡Respuestas detectadas! Algunos leads han sido marcados como 'Respondido'.");
+      }
+    } catch (err) {
+      console.error("Error al consultar Gmail:", err);
+    } finally {
+      setIsCheckingGmail(false);
     }
   };
 
@@ -262,10 +305,10 @@ function HakaTracker() {
             <NavButton id="settings" icon={Settings} label="Ajustes" />
           </div>
           <div className="mt-auto pt-6 border-t border-slate-900 space-y-4">
-             <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Empresa</p>
-                <p className="text-xs font-bold text-white truncate">HakaLab Engine</p>
-             </div>
+             <button onClick={checkGmailResponses} className={`w-full flex items-center space-x-3 px-4 py-4 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/10 transition-all group ${isCheckingGmail ? 'opacity-50 pointer-events-none' : ''}`}>
+                <RefreshCw size={18} className={isCheckingGmail ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Sincronizar Gmail</span>
+             </button>
              <button onClick={() => setIsSidecarMode(true)} className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all">
                 <span className="text-xs font-bold">Modo Sidebar</span>
                 <Minimize2 size={16} />
@@ -301,6 +344,31 @@ function HakaTracker() {
           {view === 'dashboard' && (
             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
+              {/* Sección Respondidos (NUEVO) */}
+              {dashboardData.repliedCount > 0 && (
+                <section className="space-y-6">
+                   <div className="flex items-center space-x-3">
+                    {/* Fixed: Changed MessageSquareCheck to MessageSquare as the former is not exported by lucide-react */}
+                    <MessageSquare size={18} className="text-green-400" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Leads que Respondieron ({dashboardData.repliedCount})</h3>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {dashboardData.repliedLeads.map(lead => (
+                      <div key={lead.id} className="bg-green-500/5 border border-green-500/20 p-6 rounded-[2rem] flex flex-col justify-between">
+                        <div className="flex items-center space-x-4 mb-4">
+                          <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center font-black text-green-400">{lead.name.charAt(0)}</div>
+                          <div>
+                            <h4 className="font-bold text-white text-sm">{lead.name}</h4>
+                            <p className="text-[9px] text-green-400/60 font-black uppercase tracking-widest">Interacción Detectada</p>
+                          </div>
+                        </div>
+                        <button onClick={() => window.open(`https://mail.google.com/mail/u/0/#search/from%3A${lead.email}`, '_blank')} className="w-full py-3 bg-green-500/10 text-green-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-500/20 transition-all">Ver Conversación</button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Sección Listos para Iniciar */}
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -308,9 +376,6 @@ function HakaTracker() {
                     <Sparkles size={18} className="text-blue-400" />
                     <h3 className="text-sm font-black text-white uppercase tracking-widest">Nuevos Prospectos ({dashboardData.newLeads.length})</h3>
                   </div>
-                  {dashboardData.newLeads.length > 0 && (
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800 uppercase tracking-widest">Requiere Acción</span>
-                  )}
                 </div>
 
                 {dashboardData.newLeads.length === 0 ? (
@@ -325,16 +390,12 @@ function HakaTracker() {
                 ) : (
                   <div className="grid gap-4">
                     {dashboardData.newLeads.map(lead => (
-                      <div key={lead.id} className="bg-slate-900/40 border border-slate-800 p-6 rounded-3xl flex items-center justify-between group hover:border-blue-500/50 hover:bg-slate-900/60 transition-all">
+                      <div key={lead.id} className="bg-slate-900/40 border border-slate-800 p-6 rounded-3xl flex items-center justify-between group hover:border-blue-500/50 transition-all">
                         <div className="flex items-center space-x-5">
-                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg ${lead.type === 'KDM' ? 'bg-blue-600/10 text-blue-400' : 'bg-amber-600/10 text-amber-400'} border border-white/5 shadow-inner`}>{lead.name.charAt(0)}</div>
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg ${lead.type === 'KDM' ? 'bg-blue-600/10 text-blue-400' : 'bg-amber-600/10 text-amber-400'} border border-white/5`}>{lead.name.charAt(0)}</div>
                           <div>
                             <h4 className="font-black text-white text-base tracking-tight">{lead.name}</h4>
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center space-x-2">
-                              <span>{lead.company}</span>
-                              <span className="text-slate-800">•</span>
-                              <span className={lead.type === 'KDM' ? 'text-blue-500' : 'text-amber-500'}>{lead.type}</span>
-                            </p>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{lead.company} • {lead.type}</p>
                           </div>
                         </div>
                         <button onClick={() => openGmailRaw(lead)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center space-x-3 shadow-xl active:scale-95 transition-all">
@@ -417,20 +478,19 @@ function HakaTracker() {
                       <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" />
                       <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar en toda la base de datos..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-5 pl-14 pr-4 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
                    </div>
-                   <button onClick={() => setIsSyncingContacts(true)} className="h-14 w-14 bg-blue-600/10 text-blue-500 rounded-2xl flex items-center justify-center hover:bg-blue-600/20 transition-all border border-blue-500/10"><Globe size={24} /></button>
                 </div>
                 <div className="grid gap-3">
                   {leads.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()) || l.company.toLowerCase().includes(searchQuery.toLowerCase())).map(lead => (
                     <div key={lead.id} className="p-5 bg-slate-900/40 border border-slate-800 rounded-3xl flex items-center justify-between group hover:bg-slate-900/60 transition-all">
                       <div className="flex items-center space-x-5">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black ${lead.type === 'KDM' ? 'bg-blue-600/10 text-blue-500' : 'bg-amber-600/10 text-amber-500'} border border-white/5`}>{lead.name.charAt(0)}</div>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black ${lead.type === 'KDM' ? 'bg-blue-600/10 text-blue-500' : 'bg-amber-600/10 text-amber-400'} border border-white/5`}>{lead.name.charAt(0)}</div>
                         <div>
                           <p className="text-sm font-black text-white">{lead.name}</p>
                           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{lead.company} • {lead.type} • Paso {lead.currentStep}</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className={`text-[8px] font-black px-2 py-1 rounded border uppercase ${lead.status === 'Active' ? 'text-blue-500 border-blue-500/20' : 'text-slate-600 border-slate-800'}`}>{lead.status}</span>
+                        <span className={`text-[8px] font-black px-2 py-1 rounded border uppercase ${lead.status === 'Active' ? 'text-blue-500 border-blue-500/20' : lead.status === 'Replied' ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-slate-600 border-slate-800'}`}>{lead.status}</span>
                         <button onClick={() => setLeads(prev => prev.filter(l => l.id !== lead.id))} className="text-slate-800 hover:text-red-500 p-2 transition-colors"><Trash2 size={16} /></button>
                       </div>
                     </div>
@@ -483,16 +543,10 @@ function HakaTracker() {
                   <AlertTriangle size={24} />
                   <h3 className="text-xs font-black uppercase tracking-widest">Google Integration</h3>
                 </div>
-                <div className="bg-amber-950/20 border border-amber-500/10 p-6 rounded-[2rem] space-y-5">
-                  <p className="text-xs text-amber-100/60 leading-relaxed font-medium">Si recibes un error en el login, asegúrate de añadir esta URL a tu consola de Google Cloud:</p>
-                  <div className="flex items-center space-x-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                    <code className="text-[10px] font-bold text-white truncate flex-1">{window.location.origin}</code>
-                    <button onClick={() => { navigator.clipboard.writeText(window.location.origin); alert("Copiado!"); }} className="p-2 text-blue-400 hover:text-white transition-colors"><Info size={18} /></button>
-                  </div>
-                </div>
-                <button onClick={handleConnectGoogle} className="w-full py-5 bg-white text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-slate-200 transition-all active:scale-95">
-                  {googleToken ? 'Cuenta Vinculada ✓' : 'Conectar Google Contacts'}
+                <button onClick={() => handleConnectGoogle()} className="w-full py-5 bg-white text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-slate-200 transition-all active:scale-95">
+                  {googleToken ? 'Actualizar Permisos de Gmail ✓' : 'Conectar Google Workspace'}
                 </button>
+                <p className="text-[9px] text-slate-500 text-center font-bold uppercase tracking-widest mt-4">Necesitamos permisos para detectar respuestas y leer tus contactos.</p>
               </div>
             </div>
           )}
@@ -530,7 +584,7 @@ function HakaTracker() {
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{googleToken ? 'Selecciona los prospectos' : 'Conecta tu cuenta comercial'}</p>
               </div>
               {!googleToken ? (
-                <button onClick={handleConnectGoogle} className="bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-2xl">Vincular</button>
+                <button onClick={() => handleConnectGoogle()} className="bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-2xl">Vincular</button>
               ) : (
                 <div className="relative w-56">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
