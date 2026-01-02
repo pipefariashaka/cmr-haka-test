@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI } from "@google/genai";
@@ -413,7 +412,7 @@ function HakaTracker() {
                   <div className="pt-2 border-t border-amber-500/10">
                     <p className="text-[10px] text-amber-500/80 font-bold uppercase mb-1">Pasos en Google Cloud:</p>
                     <ol className="text-[9px] text-amber-200/50 space-y-1 ml-3 list-decimal">
-                      <li>Ve a APIs y Servicios > Credenciales.</li>
+                      <li>{"Ve a APIs y Servicios > Credenciales."}</li>
                       <li>Edita el "ID de cliente de OAuth 2.0" (CRM-TEST).</li>
                       <li>Añade la URL arriba bajo "Orígenes de JavaScript autorizados".</li>
                       <li>Haz clic en "Guardar" y espera 5-10 minutos.</li>
