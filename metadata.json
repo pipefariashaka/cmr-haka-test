@@ -1,0 +1,7 @@
+{
+  "description": "Sistema de seguimiento comercial para HakaLab con gestión de KDMs y Referidores, recordatorios automáticos y personalización por IA.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "name": "App"
+}
